@@ -4,6 +4,8 @@ import Mathlib.Combinatorics.SimpleGraph.Acyclic
 --import Mathlib/Order/LocallyFinite
 import Mathlib.Tactic.Linarith
 
+def labeling :
+
 structure LabeledGraph (n : ℕ) where
   V : Type
   [fintype : Fintype V]
