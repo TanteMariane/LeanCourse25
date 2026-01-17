@@ -5,6 +5,8 @@ import Mathlib.Combinatorics.SimpleGraph.Acyclic
 import Mathlib.Tactic.Linarith
 import Mathlib.Logic.Equiv.Fin.Basic
 
+open Classical
+
 structure LabeledType where
   n : ℕ
   V : Type
@@ -30,13 +32,27 @@ def LabeledTypeWithoutLast (Lt : LabeledType) (hn : Lt.n ≥ 1) :
   }
   simpa [Nat.sub_add_cancel hn] using subtype_equiv_fin_subtype Lt
 
-
-
-
-
-
 def upper_vertices (Lt : LabeledType) (k : ℕ) : Finset Lt.V :=
   Finset.filter (λ v => Lt.n - k + 1 ≤ (Lt.labeling v)) Finset.univ
+
+def upper_vertices_card (Lt : LabeledType) (k : ℕ) (hk : k ≤ Lt.n) :
+  Fintype.card (upper_vertices Lt k) = k := by
+    simp [upper_vertices]
+    have he : {v // Lt.n - k + 1 ≤ (Lt.labeling v).val} ≃
+      {i : Fin (Lt.n + 1) // Lt.n - k + 1 ≤ i.val} :=
+        Lt.labeling.subtypeEquiv (by intro a; rfl)
+    rw [Fintype.card_congr he]
+
+    let equiv (Lt : LabeledType) (hk : k ≤ Lt.n) :
+      {i : Fin (Lt.n + 1) // Lt.n - k + 1 ≤ (i : Nat)} ≃ Fin k := {
+        toFun := λ ⟨x, hx⟩ => ⟨x - (Lt.n - k + 1), by omega⟩
+        invFun := λ ⟨x, hx⟩ => ⟨⟨Lt.n - k + 1 + x, by omega⟩, by simp⟩
+        left_inv := by intro ⟨x, hx⟩; ext; simp; omega
+        right_inv := by intro x; ext; simp }
+
+    rw [Fintype.card_congr (equiv Lt hk)]
+    exact Fintype.card_fin k
+
 
 def is_forest_with_roots_in_set (Lt : LabeledType) (G : SimpleGraph Lt.V) (k : ℕ) : Prop :=
   G.IsAcyclic ∧ SimpleGraph.ConnectedComponent.Represents
@@ -46,11 +62,10 @@ def ForestType (Lt : LabeledType) (k : ℕ) : Type :=
    {G : SimpleGraph Lt.V // is_forest_with_roots_in_set Lt G k}
 
 noncomputable instance (Lt : LabeledType) (k : ℕ) : Fintype (ForestType Lt k) := by
-  classical
   exact Subtype.fintype (λ G : SimpleGraph Lt.V => is_forest_with_roots_in_set Lt G k)
 
-noncomputable instance (Lt : LabeledType) (G : SimpleGraph Lt.V) : DecidableRel G.Adj :=
-  Classical.decRel _
+-- noncomputable instance (Lt : LabeledType) (G : SimpleGraph Lt.V) : DecidableRel G.Adj :=
+--   Classical.decRel _
 
 
 
@@ -132,23 +147,47 @@ def equiv (Lt : LabeledType) (k : ℕ) (hn : Lt.n ≥ 1) (hk : k ≥ 1) :
           exact Eq.symm (Fin.eq_of_val_eq h)
         exact htv hc
 
-    let neighbor_set_labels : Finset (Fin (Lt.n - k + 1)) :=
+    let neighbor_set_labels : Finset (Fin (n - k + 1)) :=
       neighbor_set.attach.image (fun ⟨t, ht_mem⟩ =>
       ⟨Lt.labeling t, Nat.lt_succ_of_le (ht t ht_mem)⟩)
 
-    let i : Fin (Lt.n - k + 2) := ⟨neighbor_set_labels.card, by
+    let i : Fin (n - k + 2) := ⟨neighbor_set_labels.card, by
       rw [Nat.lt_succ_iff]
       exact card_finset_fin_le neighbor_set_labels⟩
 
-    let new_type : LabeledType := LabeledTypeWithoutLast Lt hn
+    let Nt : LabeledType := LabeledTypeWithoutLast Lt hn
 
-    let S' : SimpleGraph new_type.V :=
+    let S' : SimpleGraph Nt.V :=
       W.induce {v | Lt.labeling v ≠ Fin.last n}
+
+    -- have bruh : ∀ x ∈ neighbor_set, Lt.labeling x ≠ Fin.last n := by
+    --   intro x hx
+    --   exact Fin.lt_last_iff_ne_last.mp
+    --     (Nat.lt_of_le_of_lt (ht x hx) (Nat.sub_lt hn hk))
+
+    -- let neighbor_set_Nt : Finset Nt.V :=
+    --   (neighbor_set.attach.map ⟨(fun x => ⟨x.val, bruh x.val x.property⟩), by
+    --     intro x y h; cases x; cases y; cases h; rfl⟩)
+
+    let neighbor_set_Nt : Finset Nt.V := neighbor_set.attach.map ⟨fun x =>
+        ⟨x.val, Fin.lt_last_iff_ne_last.mp
+        (Nat.lt_of_le_of_lt (ht x.val x.property) (Nat.sub_lt hn hk))⟩,
+      by intro x y h; cases x; cases y; cases h; rfl⟩
+
+    --haveI : DecidableEq Nt.V := by exact Classical.typeDecidableEq Nt.V
+
+    let new_roots_Nt : Finset Nt.V := neighbor_set_Nt ∪
+      ({v : Nt.V | Lt.labeling v.1 ≥ n - k + 1} : Finset Nt.V)
+
+    have hcard : new_roots_Nt.card = (upper_vertices Nt (k - 1 + i)).card := by
+      rw [← upper_vertices_card Nt (k - 1 + i) (by sorry)]
+
 
     --have h : ∀ (c : S'.ConnectedComponent),
     -- SimpleGraph.ConnectedComponent.Represents
     -- (upperVertices (n - 1) k) (Set.univ : Set S'.ConnectedComponent) := by
     -- intro c
+
     ⟨i, ⟨neighbor_set_labels, rfl⟩, sorry⟩
   invFun := sorry
   left_inv := sorry
