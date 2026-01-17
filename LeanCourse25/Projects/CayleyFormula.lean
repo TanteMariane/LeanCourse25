@@ -94,32 +94,15 @@ def equiv (n : ℕ) (k : ℕ) (hk : k ≥ 2) (hn : n ≥ 1) :
   left_inv := sorry
   right_inv := sorry
 
-lemma helper (n k : ℕ) :
-  Fintype.card (Σ i : Fin (n - k + 1), Σ N : {s : Finset (Fin (n - k)) // s.card = i},
-    ForestType (n - 1) (k - 1 + i)) = ∑ i : Fin (n - k + 1),
-    Nat.choose (n - k) i * Fintype.card (ForestType (n - 1) (k - 1 + i)) := by
-  simp [Fintype.card_sigma]
-
-lemma helper2 (n : ℕ) (k : ℕ) (hk : k ≥ 2) (hn : n ≥ 1) :
-  Fintype.card (ForestType n k) =
-  Fintype.card (Σ i : Fin (n - k + 1), Σ N : {s : Finset (Fin (n - k)) // s.card = i},
-    ForestType (n - 1) (k - 1 + i)) := by
-  apply Fintype.card_congr
-  exact (equiv n k hk hn)
-
-
-lemma helper1 (n : ℕ) (k : ℕ) (hk : k ≥ 2) (hn : n ≥ 1) :
+lemma helper (n : ℕ) (k : ℕ) (hk : k ≥ 2) (hn : n ≥ 1) :
   Fintype.card (ForestType n k) =
     ∑ i : Fin (n - k + 1),
     Nat.choose (n - k) i * Fintype.card (ForestType (n - 1) (k - 1 + i)) := by
-  rw [helper2]
-  · exact helper n k
-  · exact hk
-  · exact hn
+  rw [Fintype.card_congr (equiv n k hk hn)]
+  simp [Fintype.card_sigma]
 
 
-
---Plan:
+--Plan
 -- zeige Bijektion, die Bijektion ist es, das kleinste Element α aus A zu löschen,
 -- man erhält einen Wald auf n-1 Knoten verwurzelt in k-1+i Knoten
 -- Injektivität in die Hinrichtung sollte wie folgt folgen:
