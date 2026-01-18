@@ -87,7 +87,7 @@ theorem general_cayley :
 
 
 
-def equiv (Lt : LabeledType) (k : ℕ) (hn : Lt.n ≥ 1) (hk : k ≥ 1) (hnk : k ≤ Lt.n + 1) :
+def equivalence (Lt : LabeledType) (k : ℕ) (hn : Lt.n ≥ 1) (hk : k ≥ 1) (hnk : k ≤ Lt.n + 1) :
   forest_set Lt k ≃
   Σ i : Fin (Lt.n + 2 - k), Σ N : {s : Finset (Fin (Lt.n + 1 - k)) // s.card = i},
   forest_set (LabeledTypeWithoutLast Lt hn) (k - 1 + i) where
@@ -103,10 +103,10 @@ def equiv (Lt : LabeledType) (k : ℕ) (hn : Lt.n ≥ 1) (hk : k ≥ 1) (hnk : k
     have hvl : Lt.labeling v = n := by simp [v]
     let neighbor_set : Finset Lt.V := W.neighborFinset v
 
-    have hW2 : SimpleGraph.ConnectedComponent.Represents
+    have hW' : W.IsAcyclic ∧ SimpleGraph.ConnectedComponent.Represents
       roots (Set.univ : Set W.ConnectedComponent) := by
-        simp [forest_set, is_forest_with_roots_in_set] at hW
-        exact hW.2
+      simp [forest_set, is_forest_with_roots_in_set] at hW
+      exact hW
 
     have upper_not_reachable : ∀ q : Lt.V, n + 1 - k ≤ Lt.labeling q ∧ Lt.labeling q < n
       → ¬W.Reachable q v := by
@@ -122,8 +122,8 @@ def equiv (Lt : LabeledType) (k : ℕ) (hn : Lt.n ≥ 1) (hk : k ≥ 1) (hnk : k
         simp [v]
         obtain ⟨_, _, hqq⟩ := hq
         exact Fin.ne_of_val_ne hqq
-      simp [SimpleGraph.ConnectedComponent.Represents, Set.BijOn] at hW2
-      obtain ⟨_, h2, _⟩ := hW2
+      simp [SimpleGraph.ConnectedComponent.Represents, Set.BijOn] at hW'
+      obtain ⟨_, h2, _⟩ := hW'.2
       simp [Set.InjOn] at h2
       specialize h2 hp hv
       rw [← not_imp_not] at h2
@@ -174,7 +174,6 @@ def equiv (Lt : LabeledType) (k : ℕ) (hn : Lt.n ≥ 1) (hk : k ≥ 1) (hnk : k
       omega ⟩
 
     let Nt : LabeledType := LabeledTypeWithoutLast Lt hn
-
     let S' : SimpleGraph Nt.V := W.induce {v | Lt.labeling v ≠ Fin.last n}
 
     have hn_nt : ∀ x ∈ neighbor_set, Lt.labeling x ≠ Fin.last n := by
@@ -239,25 +238,36 @@ def equiv (Lt : LabeledType) (k : ℕ) (hn : Lt.n ≥ 1) (hk : k ≥ 1) (hnk : k
       omega
 
     let bij : new_roots_Nt ≃ new_upper_Nt := Finset.equivOfCardEq h_card
-    --let bijc : Finset.univ \ new_roots_Nt ≃ new_upper_Nt.fintypeCoeSort := by sorry
-    let new_roots_Nt_c : Finset Nt.V := Finset.univ \ new_roots_Nt
-    let new_upper_Nt_c : Finset Nt.V := Finset.univ \ new_upper_Nt
-    have helpp : new_roots_Nt_c.card = new_upper_Nt_c.card := by sorry
-      --exact?
+    let equiv : Nt.V ≃ Nt.V :=
+      calc
+      Nt.V ≃ {x // x ∈ new_roots_Nt} ⊕ {x // x ∉ new_roots_Nt} :=
+        Equiv.sumCompl (p := fun x => x ∈ new_roots_Nt).symm
+      _ ≃ {x // x ∈ new_upper_Nt} ⊕ {x // x ∉ new_upper_Nt} :=
+        bij.sumCongr (Fintype.equivOfCardEq (by simp; rw [h_card]))
+      _ ≃ Nt.V := Equiv.sumCompl (p := fun x => x ∈ new_upper_Nt)
 
-    let bijc : new_roots_Nt_c ≃ new_upper_Nt_c := by sorry--exact?
+    let S : SimpleGraph Nt.V := S'.map equiv.toEmbedding
+    have graph_iso : S' ≃g S := SimpleGraph.Iso.map equiv S'
 
-    let extendEquiv : Nt.V ≃ Nt.V :=
-      (Equiv.sumCompl s).trans
-        ((Equiv.sumCongr f complEquiv).trans
-          (Equiv.sumCompl t).symm)
+    have s_acyclic : S.IsAcyclic := by
+      rw [← SimpleGraph.Iso.isAcyclic_iff graph_iso]
+      apply SimpleGraph.IsAcyclic.induce
+      exact hW'.1
+
+    have hs : S ∈ forest_set (LabeledTypeWithoutLast Lt hn) (k - 1 + ↑i) := by
+      unfold forest_set
+      simp only [Finset.mem_filter, Finset.mem_univ, true_and]
+      unfold is_forest_with_roots_in_set
+      constructor
+      · exact s_acyclic
+      · sorry
 
     --have h : ∀ (c : S'.ConnectedComponent),
     -- SimpleGraph.ConnectedComponent.Represents
     -- (upperVertices (n - 1) k) (Set.univ : Set S'.ConnectedComponent) := by
     -- intro c
 
-    ⟨i, ⟨neighbor_set_labels, by rw[← hnn]⟩, sorry⟩
+    ⟨i, ⟨neighbor_set_labels, by rw[← hnn]⟩, ⟨S, hs⟩⟩
   invFun := sorry
   left_inv := sorry
   right_inv := sorry
