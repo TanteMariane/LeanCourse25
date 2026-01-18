@@ -94,24 +94,26 @@ def equiv (Lt : LabeledType) (k : ℕ) (hn : Lt.n ≥ 1) (hk : k ≥ 1) (hnk : k
   toFun :=
     λ ⟨W, hW⟩ =>
     let n : ℕ := Lt.n
+    let roots : Finset Lt.V := upper_vertices Lt k
     let v : Lt.V := Lt.labeling.symm (⟨n, by linarith⟩ : Fin (n + 1))
-    have hv : v ∈ upper_vertices Lt k := by
-        simp [upper_vertices, v, n]
+    have hv : v ∈ roots := by
+        simp [roots, v, n, upper_vertices]
         rw [Nat.add_one_le_iff]
         exact hk
     have hvl : Lt.labeling v = n := by simp [v]
     let neighbor_set : Finset Lt.V := W.neighborFinset v
 
     have hW2 : SimpleGraph.ConnectedComponent.Represents
-      (upper_vertices Lt k) (Set.univ : Set W.ConnectedComponent) := by
+      roots (Set.univ : Set W.ConnectedComponent) := by
         simp [forest_set, is_forest_with_roots_in_set] at hW
         exact hW.2
 
     have upper_not_reachable : ∀ q : Lt.V, n + 1 - k ≤ Lt.labeling q ∧ Lt.labeling q < n
       → ¬W.Reachable q v := by
       intro q hq
-      have hp : q ∈ upper_vertices Lt k := by
-        unfold upper_vertices;
+      have hp : q ∈ roots := by
+        unfold roots
+        unfold upper_vertices
         rw [@Finset.mem_filter_univ]
         exact hq.1
       rw [Nat.lt_iff_le_and_ne] at hq
@@ -153,49 +155,109 @@ def equiv (Lt : LabeledType) (k : ℕ) (hn : Lt.n ≥ 1) (hk : k ≥ 1) (hnk : k
           exact Eq.symm (Fin.eq_of_val_eq h)
         exact htv hc
 
-
     let neighbor_set_labels : Finset (Fin (n + 1 - k)) :=
       neighbor_set.attach.image (fun ⟨t, ht_mem⟩ =>
       ⟨Lt.labeling t, ht t ht_mem⟩)
 
-    let i : Fin (n + 2 - k) := ⟨neighbor_set_labels.card, by
-      have : n + 1 - k < n + 2 - k := by
-        rw [Nat.sub_lt_sub_iff_right ?_]
-        · exact Nat.lt_add_one (n + 1)
-        · exact hnk
-      exact lt_of_le_of_lt (card_finset_fin_le neighbor_set_labels) this⟩
+    have hnn : neighbor_set.card = neighbor_set_labels.card := by
+      rw [← neighbor_set.card_attach]
+      dsimp [neighbor_set_labels]
+      rw [Finset.card_image_of_injective]
+      intro ⟨x, hx⟩ ⟨y, hy⟩ h
+      ext
+      simp at h
+      exact Lt.labeling.injective (Fin.eq_of_val_eq h)
+
+    let i : Fin (n + 2 - k) := ⟨neighbor_set.card, by
+      rw [hnn]
+      have : neighbor_set_labels.card ≤ n + 1 - k := card_finset_fin_le neighbor_set_labels
+      omega ⟩
 
     let Nt : LabeledType := LabeledTypeWithoutLast Lt hn
 
-    let S' : SimpleGraph Nt.V :=
-      W.induce {v | Lt.labeling v ≠ Fin.last n}
+    let S' : SimpleGraph Nt.V := W.induce {v | Lt.labeling v ≠ Fin.last n}
 
-    have hl : ∀ x ∈ neighbor_set, Lt.labeling x ≠ Fin.last n := by
+    have hn_nt : ∀ x ∈ neighbor_set, Lt.labeling x ≠ Fin.last n := by
       intro x hx
       have hr : Lt.labeling x < n + 1 - k := ht x hx
       by_contra h
       have : (Lt.labeling x : ℕ) = n := by simp [h]
       omega
 
+    let old_new_roots : Finset Lt.V := roots \ {v}
+
+    have hr_nt : ∀ x ∈ old_new_roots, Lt.labeling x ≠ Fin.last n := by
+      intro x hx
+      simp [old_new_roots] at hx
+      by_contra h
+      have hr : x = v := (Equiv.apply_eq_iff_eq_symm_apply Lt.labeling).mp h
+      exact hx.2 hr
+
     let neighbor_set_Nt : Finset Nt.V :=
-      (neighbor_set.attach.map ⟨(fun x => ⟨x.val, hl x.val x.property⟩), by
+      (neighbor_set.attach.map ⟨(fun x => ⟨x.val, hn_nt x.val x.property⟩), by
         intro x y h; cases x; cases y; cases h; rfl⟩)
 
-    let new_roots_Nt : Finset Nt.V := neighbor_set_Nt ∪
-      ({v : Nt.V | Lt.labeling v.1 ≥ n - k + 1} : Finset Nt.V)
+    let old_roots_Nt : Finset Nt.V :=
+      (old_new_roots.attach.map ⟨(fun x => ⟨x.val, hr_nt x.val x.property⟩), by
+        intro x y h; cases x; cases y; cases h; rfl⟩)
 
-    have hcard : new_roots_Nt.card = (upper_vertices Nt (k - 1 + i)).card := by
+    let new_roots_Nt : Finset Nt.V := neighbor_set_Nt ∪ old_roots_Nt
+    let new_upper_Nt : Finset Nt.V := upper_vertices Nt (k - 1 + i)
+
+    have h_disj : Disjoint neighbor_set_Nt old_roots_Nt := by
+      rw [@Finset.disjoint_iff_ne]
+      intro a ha b hb
+      simp [neighbor_set_Nt] at ha
+      simp [old_roots_Nt] at hb
+      obtain ⟨a', ha', haa⟩ := ha
+      obtain ⟨b', hb', hbb⟩ := hb
+      unfold old_new_roots roots upper_vertices at hb'
+      simp only [Finset.mem_sdiff, Finset.mem_filter, Finset.mem_univ,
+        true_and, Finset.mem_singleton] at hb'
+      have hc : Lt.labeling a' < n + 1 - k := ht a' ha'
+      rw [← haa, ← hbb]
+      by_contra h_eq
+      have hab : a' = b' := congr_arg Subtype.val h_eq
+      rw [hab] at hc
+      omega
+
+    have h_card : new_roots_Nt.card = new_upper_Nt.card := by
       rw [upper_vertices_card Nt (k - 1 + i)
         (by simp [Nt, LabeledTypeWithoutLast]; omega)]
+      unfold new_roots_Nt
+      have hn : neighbor_set_Nt.card = i := by simp [neighbor_set_Nt]; rfl
+      have hs : old_roots_Nt.card = k - 1 := by
+        simp [old_roots_Nt, old_new_roots]
+        rw [Finset.sdiff_singleton_eq_erase v roots]
+        rw [Finset.card_erase_of_mem hv]
+        unfold roots
+        rw [tsub_left_inj]
+        repeat' simp [upper_vertices_card Lt k hnk]
+        all_goals exact hk
+      rw [Finset.card_union_of_disjoint h_disj]
+      rw [hn, hs]
+      omega
 
+    let bij : new_roots_Nt ≃ new_upper_Nt := Finset.equivOfCardEq h_card
+    --let bijc : Finset.univ \ new_roots_Nt ≃ new_upper_Nt.fintypeCoeSort := by sorry
+    let new_roots_Nt_c : Finset Nt.V := Finset.univ \ new_roots_Nt
+    let new_upper_Nt_c : Finset Nt.V := Finset.univ \ new_upper_Nt
+    have helpp : new_roots_Nt_c.card = new_upper_Nt_c.card := by sorry
+      --exact?
 
+    let bijc : new_roots_Nt_c ≃ new_upper_Nt_c := by sorry--exact?
+
+    let extendEquiv : Nt.V ≃ Nt.V :=
+      (Equiv.sumCompl s).trans
+        ((Equiv.sumCongr f complEquiv).trans
+          (Equiv.sumCompl t).symm)
 
     --have h : ∀ (c : S'.ConnectedComponent),
     -- SimpleGraph.ConnectedComponent.Represents
     -- (upperVertices (n - 1) k) (Set.univ : Set S'.ConnectedComponent) := by
     -- intro c
 
-    ⟨i, ⟨neighbor_set_labels, rfl⟩, sorry⟩
+    ⟨i, ⟨neighbor_set_labels, by rw[← hnn]⟩, sorry⟩
   invFun := sorry
   left_inv := sorry
   right_inv := sorry
