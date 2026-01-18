@@ -246,6 +246,23 @@ def equivalence (Lt : LabeledType) (k : ℕ) (hn : Lt.n ≥ 1) (hk : k ≥ 1) (h
         bij.sumCongr (Fintype.equivOfCardEq (by simp; rw [h_card]))
       _ ≃ Nt.V := Equiv.sumCompl (p := fun x => x ∈ new_upper_Nt)
 
+    have equiv_symm : ∀ (y : Nt.V) (hy : y ∈ new_upper_Nt),
+        equiv.symm y = (bij.symm ⟨y, hy⟩).val := by
+      intro y hy
+      simp [equiv, Equiv.symm_trans_apply, Equiv.sumCompl, Equiv.sumCongr, bij, hy]
+
+    have equiv_image : equiv.symm '' new_upper_Nt ⊆ new_roots_Nt := by
+      intro x hx
+      rcases hx with ⟨y, hy, rfl⟩
+      rw [equiv_symm y hy]
+      exact Subtype.coe_prop (bij.symm ⟨y, hy⟩)
+
+
+
+
+
+
+
     let S : SimpleGraph Nt.V := S'.map equiv.toEmbedding
     have graph_iso : S' ≃g S := SimpleGraph.Iso.map equiv S'
 
@@ -254,22 +271,40 @@ def equivalence (Lt : LabeledType) (k : ℕ) (hn : Lt.n ≥ 1) (hk : k ≥ 1) (h
       apply SimpleGraph.IsAcyclic.induce
       exact hW'.1
 
+    have s_represents :
+      SimpleGraph.ConnectedComponent.Represents
+        new_upper_Nt (Set.univ : Set S.ConnectedComponent) := by
+      simp [SimpleGraph.ConnectedComponent.Represents, Set.BijOn]
+      constructor
+      · simp [Set.MapsTo]
+      · constructor
+        · simp [Set.InjOn]
+          intro x hx y hy h
+          by_contra hc
+          let x' : Nt.V := graph_iso.symm x
+          let y' : Nt.V := graph_iso.symm y
+
+
+
+          have : S'.Reachable x' y' := SimpleGraph.Iso.reachable_iff.mpr h
+
+
+
+
+
+
+        · sorry
+
+
     have hs : S ∈ forest_set (LabeledTypeWithoutLast Lt hn) (k - 1 + ↑i) := by
       unfold forest_set
       simp only [Finset.mem_filter, Finset.mem_univ, true_and]
       unfold is_forest_with_roots_in_set
       constructor
       · exact s_acyclic
-      · sorry
-
-    --have h : ∀ (c : S'.ConnectedComponent),
-    -- SimpleGraph.ConnectedComponent.Represents
-    -- (upperVertices (n - 1) k) (Set.univ : Set S'.ConnectedComponent) := by
-    -- intro c
+      · exact s_represents
 
     ⟨i, ⟨neighbor_set_labels, by rw[← hnn]⟩, ⟨S, hs⟩⟩
   invFun := sorry
   left_inv := sorry
   right_inv := sorry
-
-open scoped BigOperators
