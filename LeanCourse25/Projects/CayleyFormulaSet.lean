@@ -38,20 +38,16 @@ def upper_vertices_card (Lt : LabeledType) (k : ℕ) (hk : k ≤ Lt.n + 1) :
   Finset.card (upper_vertices Lt k) = k := by
     rw [← Fintype.card_coe (upper_vertices Lt k)]
     simp [upper_vertices]
-
     have he : {v // Lt.n + 1 ≤ (Lt.labeling v).val + k} ≃
       {i : Fin (Lt.n + 1) // Lt.n + 1 - k ≤ i.val} :=
         Lt.labeling.subtypeEquiv (by intro a; simp)
-
     rw [Fintype.card_congr he]
-
     let equiv (Lt : LabeledType) (hk : k ≤ Lt.n + 1) :
       {i : Fin (Lt.n + 1) // Lt.n + 1 - k ≤ (i : Nat)} ≃ Fin k := {
         toFun := λ ⟨x, hx⟩ => ⟨x - (Lt.n + 1 - k), by omega⟩
         invFun := λ ⟨x, hx⟩ => ⟨⟨Lt.n + 1 - k + x, by omega⟩, by simp⟩
         left_inv := by intro ⟨x, hx⟩; ext; simp; omega
         right_inv := by intro x; ext; simp }
-
     rw [Fintype.card_congr (equiv Lt hk)]
     exact Fintype.card_fin k
 
@@ -62,29 +58,12 @@ def is_forest_with_roots_in_set (Lt : LabeledType) (G : SimpleGraph Lt.V) (k : �
 noncomputable def forest_set (Lt : LabeledType) (k : ℕ) : Finset (SimpleGraph Lt.V) :=
    {G | is_forest_with_roots_in_set Lt G k}
 
--- noncomputable instance (Lt : LabeledType) (k : ℕ) : Fintype (ForestType Lt k) := by
---   exact Subtype.fintype (λ G : SimpleGraph Lt.V => is_forest_with_roots_in_set Lt G k)
-
--- noncomputable instance (Lt : LabeledType) (G : SimpleGraph Lt.V) : DecidableRel G.Adj :=
---   Classical.decRel _
-
-
-
-
-
-
-
-
 noncomputable def number_of_forests (Lt : LabeledType) (k : ℕ) : ℕ :=
   Finset.card (forest_set Lt k)
 
 theorem general_cayley :
   ∀ (Lt : LabeledType), ∀ k : ℕ, k ≤ Lt.n + 1 →
     number_of_forests Lt k = k * (Lt.n + 1) ^ ((Lt.n + 1) - 1 - k) := by sorry
-
-
-
-
 
 def equivalence (Lt : LabeledType) (k : ℕ) (hn : Lt.n ≥ 1) (hk : k ≥ 1) (hnk : k ≤ Lt.n + 1) :
   forest_set Lt k ≃
@@ -113,23 +92,26 @@ def equivalence (Lt : LabeledType) (k : ℕ) (hn : Lt.n ≥ 1) (hk : k ≥ 1) (h
       simp [ConnectedComponent.Represents, Set.BijOn, Set.InjOn] at hW'
       exact hne (hW'.2.2.1 hx hy h)
 
+    have hvr : ∀ t ∈ neighbor_set, W.Reachable v t := by
+      intro t ht
+      apply Adj.reachable
+      subst neighbor_set
+      simp at ht
+      exact ht
+
     have ht : ∀ t ∈ neighbor_set, Lt.labeling t < n + 1 - k := by
       intro t ht
       have htv : v ≠ t := by
         apply W.ne_of_adj
         exact (mem_neighborFinset W v t).mp ht
       subst neighbor_set
-      have h : W.Reachable v t := by
-        apply Adj.reachable
-        simp at ht
-        exact ht
       by_contra hc
       rw [Nat.not_lt] at hc
       have htr : t ∈ roots := by
         unfold roots upper_vertices
         simp
         exact Nat.le_add_of_sub_le hc
-      exact h_roots hv htr htv h
+      exact h_roots hv htr htv (hvr t ht)
 
     let neighbor_set_labels : Finset (Fin (n + 1 - k)) :=
       neighbor_set.attach.image (fun ⟨t, ht_mem⟩ =>
@@ -215,28 +197,24 @@ def equivalence (Lt : LabeledType) (k : ℕ) (hn : Lt.n ≥ 1) (hk : k ≥ 1) (h
       have hn : neighbor_set_Nt.card = i := by simp [neighbor_set_Nt]; rfl
       have hs : old_roots_Nt.card = k - 1 := by
         simp [old_roots_Nt, old_new_roots]
-        rw [Finset.sdiff_singleton_eq_erase v roots]
-        rw [Finset.card_erase_of_mem hv]
+        rw [Finset.sdiff_singleton_eq_erase v roots, Finset.card_erase_of_mem hv]
         unfold roots
         rw [tsub_left_inj]
         repeat' simp [upper_vertices_card Lt k hnk]
         all_goals exact hk
-      rw [Finset.card_union_of_disjoint h_disj]
-      rw [hn, hs]
+      rw [Finset.card_union_of_disjoint h_disj, hn, hs]
       omega
 
     have h_new_roots : ∀ ⦃x y : Nt.V⦄, x ∈ new_roots_Nt → y ∈ new_roots_Nt →
       x ≠ y → ¬ S'.Reachable x y := by
       intro x y hx hy hu
       simp [new_roots_Nt, old_roots_Nt, neighbor_set_Nt] at hx hy
-
       rcases hx with ⟨x', x'_mem, x'_eq⟩ | ⟨x', x'_mem, x'_eq⟩ <;>
       rcases hy with ⟨y', y'_mem, y'_eq⟩ | ⟨y', y'_mem, y'_eq⟩
       all_goals
         have x_x' : x' = x.val := by simpa using congrArg Subtype.val x'_eq
         have y_y' : y' = y.val := by simpa using congrArg Subtype.val y'_eq
         have x'_neq_y' : x' ≠ y' := by intro h; subst x; subst y; subst h; exact hu rfl
-
       · by_contra h
         rcases SimpleGraph.Reachable.exists_isPath h with ⟨p, hp⟩
         let p' : W.Path x.val y.val := ⟨p.map S'_hom_W, Walk.map_isPath_of_injective S'_hom_W_inj hp⟩
@@ -244,23 +222,17 @@ def equivalence (Lt : LabeledType) (k : ℕ) (hn : Lt.n ≥ 1) (hk : k ≥ 1) (h
           simp [p', S'_hom_W]
           intro k hk
           by_contra hc
-          have hcon : Lt.labeling v ≠ Fin.last Lt.n := by
-            rw [← hc]
-            exact k.property
+          have hcon : Lt.labeling v ≠ Fin.last Lt.n := by rw [← hc]; exact k.property
           exact hcon hvl
-        have hx'v : W.Adj x' v := by simp [neighbor_set] at x'_mem; exact id (adj_symm W x'_mem)
+        have hx'v : W.Adj x' v := by simp [neighbor_set] at x'_mem; exact (adj_symm W x'_mem)
         have hvy' : W.Adj v y' := by simp [neighbor_set] at y'_mem; exact y'_mem
         let walk_x'vy' : W.Walk x' y' := Walk.cons hx'v (Walk.cons hvy' Walk.nil)
         have v_in_walk_x'vy' : v ∈ walk_x'vy'.support := by simp [walk_x'vy']
         have path_x'vy' : walk_x'vy'.IsPath := by
           simp [walk_x'vy']
           refine ⟨?_, ?_, ?_⟩
-          · simp [neighbor_set] at y'_mem
-            apply W.ne_of_adj
-            exact y'_mem
-          · simp [neighbor_set] at x'_mem
-            apply W.ne_of_adj
-            exact hx'v
+          · simp [neighbor_set] at y'_mem; apply W.ne_of_adj; exact y'_mem
+          · simp [neighbor_set] at x'_mem; apply W.ne_of_adj; exact hx'v
           · exact x'_neq_y'
         subst x_x' y_y'
         have hc : p' = ⟨walk_x'vy', path_x'vy'⟩ := by apply IsAcyclic.path_unique hW'.1
@@ -269,23 +241,30 @@ def equivalence (Lt : LabeledType) (k : ℕ) (hn : Lt.n ≥ 1) (hk : k ≥ 1) (h
           have h_support_eq : p'.1.support = walk_x'vy'.support := by simp [h_eq]
           have h_support_eq' : walk_x'vy'.support ≠ p'.1.support := by
             apply Membership.mem.ne_of_notMem' v_in_walk_x'vy' v_walk
-          exact h_support_eq' (id (Eq.symm h_support_eq))
+          exact h_support_eq' (Eq.symm h_support_eq)
         exact hc' hc
-      · sorry
-      · sorry
-
-
       · by_contra h
-        have hc1 : W.Reachable x' y' := by
-          rw [x_x', y_y']
-          exact rS'_rW x y h
+        have hc1 : W.Reachable x' y' := by rw [x_x', y_y']; exact rS'_rW x y h
+        have hc2: ¬W.Reachable x' y' := by
+          by_contra hc
+          simp [old_new_roots] at y'_mem
+          rw [← ne_eq y' v, ne_comm] at y'_mem
+          exact (h_roots hv y'_mem.1 y'_mem.2) (Reachable.trans (hvr x' x'_mem) hc)
+        exact hc2 hc1
+      · by_contra h
+        have hc1 : W.Reachable y' x' := by rw [y_y', x_x']; exact rS'_rW y x (Reachable.symm h)
+        have hc2: ¬W.Reachable y' x' := by
+          by_contra hc
+          simp [old_new_roots] at x'_mem
+          rw [← ne_eq x' v, ne_comm] at x'_mem
+          exact (h_roots hv x'_mem.1 x'_mem.2) (Reachable.trans (hvr y' y'_mem) hc)
+        exact hc2 hc1
+      · by_contra h
+        have hc1 : W.Reachable x' y' := by rw [x_x', y_y']; exact rS'_rW x y h
         have hc2: ¬W.Reachable x' y' := by
           simp [old_new_roots] at x'_mem y'_mem
           exact h_roots x'_mem.1 y'_mem.1 x'_neq_y'
         exact hc2 hc1
-
-
-
 
     let bij : new_roots_Nt ≃ new_upper_Nt := Finset.equivOfCardEq h_card
     let equiv : Nt.V ≃ Nt.V :=
@@ -308,7 +287,7 @@ def equivalence (Lt : LabeledType) (k : ℕ) (hn : Lt.n ≥ 1) (hk : k ≥ 1) (h
       exact Subtype.coe_prop (bij.symm ⟨y, hy⟩)
 
     let S : SimpleGraph Nt.V := S'.map equiv.toEmbedding
-    have graph_iso : S' ≃g S := Iso.map equiv S'
+    let graph_iso : S' ≃g S := Iso.map equiv S'
 
     have s_acyclic : S.IsAcyclic := by
       rw [← Iso.isAcyclic_iff graph_iso]
@@ -319,26 +298,18 @@ def equivalence (Lt : LabeledType) (k : ℕ) (hn : Lt.n ≥ 1) (hk : k ≥ 1) (h
       ConnectedComponent.Represents
         new_upper_Nt (Set.univ : Set S.ConnectedComponent) := by
       simp [ConnectedComponent.Represents, Set.BijOn]
-      constructor
+      refine ⟨?_, ?_, ?_⟩
       · simp [Set.MapsTo]
-      · constructor
-        · simp [Set.InjOn]
-          intro x hx y hy h
-          by_contra hc
-          let x' : Nt.V := graph_iso.symm x
-          let y' : Nt.V := graph_iso.symm y
-
-
-
-          have : S'.Reachable x' y' := Iso.reachable_iff.mpr h
-
-
-
-
-
-
-        · sorry
-
+      · simp [Set.InjOn]
+        intro x hx y hy h
+        by_contra hc
+        let x' : Nt.V := graph_iso.symm x
+        let y' : Nt.V := graph_iso.symm y
+        have hx' : x' ∈ new_roots_Nt := equiv_image (by dsimp [x']; exact ⟨x, hx, rfl⟩)
+        have hy' : y' ∈ new_roots_Nt := equiv_image (by dsimp [y']; exact ⟨y, hy, rfl⟩)
+        have hne : x' ≠ y' := by intro h; exact hc (graph_iso.symm.injective h)
+        exact (h_new_roots hx' hy' hne) (Iso.reachable_iff.mpr h)
+      · sorry
 
     have hs : S ∈ forest_set (LabeledTypeWithoutLast Lt hn) (k - 1 + ↑i) := by
       unfold forest_set
