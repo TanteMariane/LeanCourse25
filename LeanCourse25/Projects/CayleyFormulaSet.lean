@@ -280,11 +280,26 @@ def equivalence (Lt : LabeledType) (k : ℕ) (hn : Lt.n ≥ 1) (hk : k ≥ 1) (h
       intro y hy
       simp [equiv, Equiv.symm_trans_apply, Equiv.sumCompl, Equiv.sumCongr, bij, hy]
 
-    have equiv_image : equiv.symm '' new_upper_Nt ⊆ new_roots_Nt := by
+    have equiv_f : ∀ (y : Nt.V) (hy : y ∈ new_roots_Nt),
+        equiv y = (bij ⟨y, hy⟩).val := by
+      intro y hy
+      simp [equiv, Equiv.trans_apply, Equiv.sumCompl, Equiv.sumCongr, bij, hy]
+
+    have equiv_symm_image : equiv.symm '' new_upper_Nt ⊆ new_roots_Nt := by
       intro x hx
       rcases hx with ⟨y, hy, rfl⟩
       rw [equiv_symm y hy]
       exact Subtype.coe_prop (bij.symm ⟨y, hy⟩)
+
+    have baababa : equiv.symm '' new_upper_Nt = new_roots_Nt := by
+      apply Set.Subset.antisymm_iff.mpr
+      constructor
+      · exact equiv_symm_image
+      · intro x hx
+        simp
+        rw [equiv_f x hx]
+        exact Finset.coe_mem (bij ⟨x, hx⟩)
+
 
     let S : SimpleGraph Nt.V := S'.map equiv.toEmbedding
     let graph_iso : S' ≃g S := Iso.map equiv S'
@@ -305,11 +320,23 @@ def equivalence (Lt : LabeledType) (k : ℕ) (hn : Lt.n ≥ 1) (hk : k ≥ 1) (h
         by_contra hc
         let x' : Nt.V := graph_iso.symm x
         let y' : Nt.V := graph_iso.symm y
-        have hx' : x' ∈ new_roots_Nt := equiv_image (by dsimp [x']; exact ⟨x, hx, rfl⟩)
-        have hy' : y' ∈ new_roots_Nt := equiv_image (by dsimp [y']; exact ⟨y, hy, rfl⟩)
+        have hx' : x' ∈ new_roots_Nt := equiv_symm_image (by dsimp [x']; exact ⟨x, hx, rfl⟩)
+        have hy' : y' ∈ new_roots_Nt := equiv_symm_image (by dsimp [y']; exact ⟨y, hy, rfl⟩)
         have hne : x' ≠ y' := by intro h; exact hc (graph_iso.symm.injective h)
         exact (h_new_roots hx' hy' hne) (Iso.reachable_iff.mpr h)
       · sorry
+
+
+    have h_surj_iff : Set.SurjOn S.connectedComponentMk (new_upper_Nt : Set Nt.V) Set.univ ↔
+                  Set.SurjOn S.connectedComponentMk (graph_iso.symm '' (new_upper_Nt : Set Nt.V)) Set.univ := by
+  -- Since graph_iso.symm is a bijection
+      have h_bijective : Function.Bijective graph_iso.symm :=
+        graph_iso.symm.toEquiv.bijective
+
+  -- The image under a bijection preserves surjectivity
+      exact ⟨Set.SurjOn.image (by simp) h_surj, fun h => by
+        convert h.preimage_mono (by simp [Set.subset_preimage_image _ h_bijective.1])
+      simp [graph_iso.symm_apply_apply]⟩
 
     have hs : S ∈ forest_set (LabeledTypeWithoutLast Lt hn) (k - 1 + ↑i) := by
       unfold forest_set
