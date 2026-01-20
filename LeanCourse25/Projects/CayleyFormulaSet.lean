@@ -295,7 +295,7 @@ def equivalence (Lt : LabeledType) (k : ℕ) (hn : Lt.n ≥ 1) (hk : k ≥ 1) (h
           intro k hk
           by_contra hc
           have hcon : Lt.labeling v ≠ Fin.last Lt.n := by rw [← hc]; exact k.property
-          exact hcon hvl
+          exact hcon ((hvl v).mpr rfl)
         have hx'v : W.Adj x' v := by simp [neighbor_set] at x'_mem; exact (adj_symm W x'_mem)
         have hvy' : W.Adj v y' := by simp [neighbor_set] at y'_mem; exact y'_mem
         let walk_x'vy' : W.Walk x' y' := Walk.cons hx'v (Walk.cons hvy' Walk.nil)
