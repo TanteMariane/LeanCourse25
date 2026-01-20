@@ -6,6 +6,8 @@ import Mathlib.Logic.Equiv.Fin.Basic
 
 open Classical SimpleGraph
 
+set_option maxHeartbeats 400000
+
 structure LabeledType where
   n : ℕ
   V : Type
@@ -78,7 +80,12 @@ def equivalence (Lt : LabeledType) (k : ℕ) (hn : Lt.n ≥ 1) (hk : k ≥ 1) (h
       simp [roots, v, n, upper_vertices]
       rw [Nat.add_one_le_iff]
       exact hk
-    have hvl : Lt.labeling v = Fin.last Lt.n := by simp [v, Fin.last]; rfl
+    have hvl : ∀ i, Lt.labeling i = Fin.last Lt.n ↔ i = v := by
+      intro i
+      constructor
+      · intro hi; exact (Equiv.apply_eq_iff_eq_symm_apply Lt.labeling).mp hi
+      · intro hi; rw [hi]; simp [v, Fin.last]; rfl
+
     let neighbor_set : Finset Lt.V := W.neighborFinset v
 
     have hW' : W.IsAcyclic ∧ ConnectedComponent.Represents
@@ -114,8 +121,7 @@ def equivalence (Lt : LabeledType) (k : ℕ) (hn : Lt.n ≥ 1) (hk : k ≥ 1) (h
       exact h_roots hv htr htv (hvr t ht)
 
     let neighbor_set_labels : Finset (Fin (n + 1 - k)) :=
-      neighbor_set.attach.image (fun ⟨t, ht_mem⟩ =>
-      ⟨Lt.labeling t, ht t ht_mem⟩)
+      neighbor_set.attach.image (fun ⟨t, ht_mem⟩ => ⟨Lt.labeling t, ht t ht_mem⟩)
 
     have hnn : neighbor_set.card = neighbor_set_labels.card := by
       rw [← neighbor_set.card_attach]
@@ -145,6 +151,22 @@ def equivalence (Lt : LabeledType) (k : ℕ) (hn : Lt.n ≥ 1) (hk : k ≥ 1) (h
     have rS'_rW (u v : Nt.V) (h : S'.Reachable u v) : W.Reachable u.val v.val := by
       rcases h with ⟨p⟩
       exact ⟨p.map S'_hom_W⟩
+
+    have rW_rS' (e : Lt.V) (d : Lt.V) (p : W.Walk e d)
+      (he : Lt.labeling e ≠ Fin.last n) (hd : Lt.labeling d ≠ Fin.last n)
+      (hs : ∀ v ∈ p.support, Lt.labeling v ≠ Fin.last n) :
+      S'.Reachable ⟨e, he⟩ ⟨d, hd⟩ :=
+      ⟨by induction p with
+      | nil => exact Walk.nil
+      | @cons a b w h p' ih =>
+        have ha : Lt.labeling a ≠ Fin.last n := hs a (by simp)
+        have hb : Lt.labeling b ≠ Fin.last n := hs b (by simp [Walk.support_cons])
+        have h_edge : S'.Adj ⟨a, ha⟩ ⟨b, hb⟩ := by simp [S', SimpleGraph.induce, h]
+        have hs' : ∀ x ∈ p'.support, Lt.labeling x ≠ Fin.last n := by
+          intro x hx
+          apply hs x
+          simp [Walk.support_cons, hx]
+        exact Walk.cons h_edge (ih hb hd hs')⟩
 
     have hn_nt : ∀ x ∈ neighbor_set, Lt.labeling x ≠ Fin.last n := by
       intro x hx
@@ -204,6 +226,56 @@ def equivalence (Lt : LabeledType) (k : ℕ) (hn : Lt.n ≥ 1) (hk : k ≥ 1) (h
         all_goals exact hk
       rw [Finset.card_union_of_disjoint h_disj, hn, hs]
       omega
+
+    have h_cc : ∀ d, ∃ e ∈ new_roots_Nt, S'.Reachable e d := by
+      intro d
+      let c : W.ConnectedComponent := W.connectedComponentMk d.1
+      have hc_univ : c ∈ Set.univ := trivial
+      rcases hW'.2.surjOn hc_univ with ⟨e', he', hce'⟩
+      have hr : W.Reachable d.1 e' := by simp [c] at hce'; exact Reachable.symm hce'
+      by_cases bc : e' ≠ v
+      · have he'l : Lt.labeling e' ≠ Fin.last n := by by_contra hc; exact bc ((hvl e').mp hc)
+        have he'nor : e' ∈ old_new_roots := by simp [old_new_roots]; exact ⟨he', bc⟩
+        let e : Nt.V := ⟨e', he'l⟩
+        have he : e ∈ new_roots_Nt := by simp [new_roots_Nt, old_roots_Nt]; right; exact ⟨e', he'nor, rfl⟩
+        use e
+        constructor
+        · exact he
+        · rcases Reachable.exists_isPath hr with ⟨p, hp⟩
+          have hrs : ∀ i ∈ p.support, Lt.labeling i ≠ Fin.last n := by
+            intro i hi
+            by_contra hc
+            have : i = v := (hvl i).mp hc
+            have hrc : W.Reachable e' v := by
+              rw [← this]
+              exact ⟨SimpleGraph.Walk.takeUntil p.reverse i (by simpa using hi)⟩
+            exact (h_roots he' hv bc) hrc
+          exact rW_rS' e' d.1 p.reverse he'l d.2 (by simpa using hrs)
+      · rw [not_ne_iff] at bc
+        subst bc
+        have dnv : d.1 ≠ v := by by_contra hc; exact d.2 ((hvl d.1).mpr hc)
+        rcases Reachable.exists_isPath hr with ⟨p, hp⟩
+        have pn : ¬p.Nil := Walk.not_nil_of_ne dnv
+        rcases adj_of_mem_walk_support p pn (Walk.end_mem_support p) with ⟨nv, hnvs, hnv⟩
+        have hnv' : nv ∈ neighbor_set := by simpa [neighbor_set] using hnv
+        have hnvl : Lt.labeling nv ≠ Fin.last n := by by_contra hc; exact W.ne_of_adj (adj_symm W hnv) ((hvl nv).mp hc)
+        have hnvnor : ⟨nv, hnvl⟩ ∈ new_roots_Nt := by
+          simp [new_roots_Nt, neighbor_set_Nt]
+          left
+          exact ⟨nv, hnv', rfl⟩
+        let e : Nt.V := ⟨nv, hnvl⟩
+        use e
+        constructor
+        · exact hnvnor
+        · let p' : W.Path d.1 nv := ⟨Walk.takeUntil p nv hnvs, Walk.IsPath.takeUntil hp hnvs⟩
+          have vp' : v ∉ p'.1.support := Walk.endpoint_notMem_support_takeUntil hp hnvs (ne_of_adj W hnv)
+          have hrs : ∀ i ∈ p'.1.support, Lt.labeling i ≠ Fin.last n := by
+            intro i hi
+            by_contra hc
+            have : i = v := (hvl i).mp hc
+            rw [this] at hi
+            exact vp' hi
+          exact reachable_comm.mp (rW_rS' (d.1) nv (↑p') d.property hnvl hrs)
 
     have h_new_roots : ∀ ⦃x y : Nt.V⦄, x ∈ new_roots_Nt → y ∈ new_roots_Nt →
       x ≠ y → ¬ S'.Reachable x y := by
@@ -280,7 +352,7 @@ def equivalence (Lt : LabeledType) (k : ℕ) (hn : Lt.n ≥ 1) (hk : k ≥ 1) (h
       intro y hy
       simp [equiv, Equiv.symm_trans_apply, Equiv.sumCompl, Equiv.sumCongr, bij, hy]
 
-    have equiv_f : ∀ (y : Nt.V) (hy : y ∈ new_roots_Nt),
+    have equiv_forward : ∀ (y : Nt.V) (hy : y ∈ new_roots_Nt),
         equiv y = (bij ⟨y, hy⟩).val := by
       intro y hy
       simp [equiv, Equiv.trans_apply, Equiv.sumCompl, Equiv.sumCongr, bij, hy]
@@ -291,23 +363,33 @@ def equivalence (Lt : LabeledType) (k : ℕ) (hn : Lt.n ≥ 1) (hk : k ≥ 1) (h
       rw [equiv_symm y hy]
       exact Subtype.coe_prop (bij.symm ⟨y, hy⟩)
 
-    have baababa : equiv.symm '' new_upper_Nt = new_roots_Nt := by
+    have h_equiv : equiv.symm '' new_upper_Nt = new_roots_Nt := by
       apply Set.Subset.antisymm_iff.mpr
       constructor
       · exact equiv_symm_image
-      · intro x hx
-        simp
-        rw [equiv_f x hx]
-        exact Finset.coe_mem (bij ⟨x, hx⟩)
-
+      · intro x hx; simp; rw [equiv_forward x hx]; exact Finset.coe_mem (bij ⟨x, hx⟩)
 
     let S : SimpleGraph Nt.V := S'.map equiv.toEmbedding
     let graph_iso : S' ≃g S := Iso.map equiv S'
+    let c_iso : S'.ConnectedComponent ≃ S.ConnectedComponent := SimpleGraph.Iso.connectedComponentEquiv graph_iso
 
     have s_acyclic : S.IsAcyclic := by
       rw [← Iso.isAcyclic_iff graph_iso]
       apply IsAcyclic.induce
       exact hW'.1
+
+    have h_reduce_surj : Set.SurjOn S'.connectedComponentMk new_roots_Nt Set.univ →
+      Set.SurjOn S.connectedComponentMk (new_upper_Nt : Set Nt.V) Set.univ := by
+      intro h c hc_univ
+      rw [← h_equiv] at h
+      let c' := c_iso.symm c
+      rcases h trivial with ⟨y, ⟨x, hx, rfl⟩, hy_c'⟩
+      refine ⟨x, hx, ?_⟩
+      calc
+        S.connectedComponentMk x = c_iso (c_iso.symm (S.connectedComponentMk x)) := by simp
+        _ = c_iso (S'.connectedComponentMk (graph_iso.symm x)) := rfl
+        _ = c_iso (c_iso.symm c) := congrArg c_iso hy_c'
+        _ = c := by simp
 
     have s_represents :
       ConnectedComponent.Represents
@@ -324,19 +406,14 @@ def equivalence (Lt : LabeledType) (k : ℕ) (hn : Lt.n ≥ 1) (hk : k ≥ 1) (h
         have hy' : y' ∈ new_roots_Nt := equiv_symm_image (by dsimp [y']; exact ⟨y, hy, rfl⟩)
         have hne : x' ≠ y' := by intro h; exact hc (graph_iso.symm.injective h)
         exact (h_new_roots hx' hy' hne) (Iso.reachable_iff.mpr h)
-      · sorry
-
-
-    have h_surj_iff : Set.SurjOn S.connectedComponentMk (new_upper_Nt : Set Nt.V) Set.univ ↔
-                  Set.SurjOn S.connectedComponentMk (graph_iso.symm '' (new_upper_Nt : Set Nt.V)) Set.univ := by
-  -- Since graph_iso.symm is a bijection
-      have h_bijective : Function.Bijective graph_iso.symm :=
-        graph_iso.symm.toEquiv.bijective
-
-  -- The image under a bijection preserves surjectivity
-      exact ⟨Set.SurjOn.image (by simp) h_surj, fun h => by
-        convert h.preimage_mono (by simp [Set.subset_preimage_image _ h_bijective.1])
-      simp [graph_iso.symm_apply_apply]⟩
+      · apply h_reduce_surj
+        simp [Set.SurjOn, Set.ext_iff, Set.mem_image, Set.mem_univ]
+        intro c
+        rcases ConnectedComponent.nonempty_supp c with ⟨d, hd⟩
+        rw [ConnectedComponent.mem_supp_iff] at hd
+        rw [← hd]
+        simp only [ConnectedComponent.eq]
+        exact h_cc d
 
     have hs : S ∈ forest_set (LabeledTypeWithoutLast Lt hn) (k - 1 + ↑i) := by
       unfold forest_set
