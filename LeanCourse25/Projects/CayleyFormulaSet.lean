@@ -67,7 +67,7 @@ theorem general_cayley :
   ∀ (Lt : LabeledType), ∀ k : ℕ, k ≤ Lt.n + 1 →
     number_of_forests Lt k = k * (Lt.n + 1) ^ ((Lt.n + 1) - 1 - k) := by sorry
 
-def equivalence (Lt : LabeledType) (k : ℕ) (hn : Lt.n ≥ 1) (hk : k ≥ 1) (hnk : k ≤ Lt.n + 1) :
+noncomputable def equivalence (Lt : LabeledType) (k : ℕ) (hn : Lt.n ≥ 1) (hk : k ≥ 1) (hnk : k ≤ Lt.n + 1) :
   forest_set Lt k ≃
   Σ i : Fin (Lt.n + 2 - k), Σ N : {s : Finset (Fin (Lt.n + 1 - k)) // s.card = i},
   forest_set (LabeledTypeWithoutLast Lt hn) (k - 1 + i) where
@@ -237,7 +237,8 @@ def equivalence (Lt : LabeledType) (k : ℕ) (hn : Lt.n ≥ 1) (hk : k ≥ 1) (h
       · have he'l : Lt.labeling e' ≠ Fin.last n := by by_contra hc; exact bc ((hvl e').mp hc)
         have he'nor : e' ∈ old_new_roots := by simp [old_new_roots]; exact ⟨he', bc⟩
         let e : Nt.V := ⟨e', he'l⟩
-        have he : e ∈ new_roots_Nt := by simp [new_roots_Nt, old_roots_Nt]; right; exact ⟨e', he'nor, rfl⟩
+        have he : e ∈ new_roots_Nt :=
+          by simp [new_roots_Nt, old_roots_Nt]; right; exact ⟨e', he'nor, rfl⟩
         use e
         constructor
         · exact he
@@ -258,7 +259,8 @@ def equivalence (Lt : LabeledType) (k : ℕ) (hn : Lt.n ≥ 1) (hk : k ≥ 1) (h
         have pn : ¬p.Nil := Walk.not_nil_of_ne dnv
         rcases adj_of_mem_walk_support p pn (Walk.end_mem_support p) with ⟨nv, hnvs, hnv⟩
         have hnv' : nv ∈ neighbor_set := by simpa [neighbor_set] using hnv
-        have hnvl : Lt.labeling nv ≠ Fin.last n := by by_contra hc; exact W.ne_of_adj (adj_symm W hnv) ((hvl nv).mp hc)
+        have hnvl : Lt.labeling nv ≠ Fin.last n :=
+          by by_contra hc; exact W.ne_of_adj (adj_symm W hnv) ((hvl nv).mp hc)
         have hnvnor : ⟨nv, hnvl⟩ ∈ new_roots_Nt := by
           simp [new_roots_Nt, neighbor_set_Nt]
           left
@@ -268,7 +270,8 @@ def equivalence (Lt : LabeledType) (k : ℕ) (hn : Lt.n ≥ 1) (hk : k ≥ 1) (h
         constructor
         · exact hnvnor
         · let p' : W.Path d.1 nv := ⟨Walk.takeUntil p nv hnvs, Walk.IsPath.takeUntil hp hnvs⟩
-          have vp' : v ∉ p'.1.support := Walk.endpoint_notMem_support_takeUntil hp hnvs (ne_of_adj W hnv)
+          have vp' : v ∉ p'.1.support :=
+            Walk.endpoint_notMem_support_takeUntil hp hnvs (ne_of_adj W hnv)
           have hrs : ∀ i ∈ p'.1.support, Lt.labeling i ≠ Fin.last n := by
             intro i hi
             by_contra hc
@@ -289,7 +292,8 @@ def equivalence (Lt : LabeledType) (k : ℕ) (hn : Lt.n ≥ 1) (hk : k ≥ 1) (h
         have x'_neq_y' : x' ≠ y' := by intro h; subst x; subst y; subst h; exact hu rfl
       · by_contra h
         rcases SimpleGraph.Reachable.exists_isPath h with ⟨p, hp⟩
-        let p' : W.Path x.val y.val := ⟨p.map S'_hom_W, Walk.map_isPath_of_injective S'_hom_W_inj hp⟩
+        let p' : W.Path x.val y.val :=
+          ⟨p.map S'_hom_W, Walk.map_isPath_of_injective S'_hom_W_inj hp⟩
         have v_walk : v ∉ p'.1.support := by
           simp [p', S'_hom_W]
           intro k hk
@@ -371,7 +375,8 @@ def equivalence (Lt : LabeledType) (k : ℕ) (hn : Lt.n ≥ 1) (hk : k ≥ 1) (h
 
     let S : SimpleGraph Nt.V := S'.map equiv.toEmbedding
     let graph_iso : S' ≃g S := Iso.map equiv S'
-    let c_iso : S'.ConnectedComponent ≃ S.ConnectedComponent := SimpleGraph.Iso.connectedComponentEquiv graph_iso
+    let c_iso : S'.ConnectedComponent ≃ S.ConnectedComponent :=
+      SimpleGraph.Iso.connectedComponentEquiv graph_iso
 
     have s_acyclic : S.IsAcyclic := by
       rw [← Iso.isAcyclic_iff graph_iso]
@@ -427,3 +432,11 @@ def equivalence (Lt : LabeledType) (k : ℕ) (hn : Lt.n ≥ 1) (hk : k ≥ 1) (h
   invFun := sorry
   left_inv := sorry
   right_inv := sorry
+
+
+  -- lemma helper (n : ℕ) (k : ℕ) (hk : k ≥ 2) (hn : n ≥ 1) :
+  -- Fintype.card (ForestType n k) =
+  --   ∑ i : Fin (n - k + 1),
+  --   Nat.choose (n - k) i * Fintype.card (ForestType (n - 1) (k - 1 + i)) := by
+  -- rw [Fintype.card_congr (equiv n k hk hn)]
+  -- simp [Fintype.card_sigma]
