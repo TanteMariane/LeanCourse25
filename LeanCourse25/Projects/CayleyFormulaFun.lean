@@ -5,7 +5,7 @@ import Mathlib.Combinatorics.SimpleGraph.Acyclic
 
 open Classical SimpleGraph
 
-noncomputable def bij (Lt : LabeledType) (k : ℕ) (hn : Lt.n ≥ 1) (hk : k ≥ 1) (hnk : k ≤ Lt.n + 1) :
+noncomputable def f (Lt : LabeledType) (k : ℕ) (hn : Lt.n ≥ 1) (hk : k ≥ 1) (hnk : k ≤ Lt.n + 1) :
   forest_set Lt k →
   Σ i : Fin (Lt.n + 2 - k), Σ N : {s : Finset (Fin (Lt.n + 1 - k)) // s.card = i},
   forest_set (LabeledTypeWithoutLast Lt hn) (k - 1 + i) :=
