@@ -1,81 +1,18 @@
+import LeanCourse25.Projects.CayleyFormulaTypes
 import Mathlib.Combinatorics.SimpleGraph.Connectivity.Connected
 import Mathlib.Combinatorics.SimpleGraph.Connectivity.Represents
 import Mathlib.Combinatorics.SimpleGraph.Acyclic
-import Mathlib.Tactic.Linarith
-import Mathlib.Logic.Equiv.Fin.Basic
 
 open Classical SimpleGraph
 
-set_option maxHeartbeats 400000
-
-structure LabeledType where
-  n : ℕ
-  V : Type
-  labeling : V ≃ Fin (n + 1)
-
-instance (Lt : LabeledType) : Fintype Lt.V :=
-  Fintype.ofEquiv (Fin (Lt.n + 1)) Lt.labeling.symm
-
-def LabeledTypeWithoutLastType (Lt : LabeledType) : Type :=
-  {v : Lt.V // Lt.labeling v ≠ Fin.last Lt.n}
-
-def subtype_equiv_fin_subtype (Lt : LabeledType) :
-  LabeledTypeWithoutLastType Lt ≃ Fin Lt.n :=
-  (Lt.labeling.subtypeEquiv (fun _ => by rfl)).trans
-  (finSuccAboveEquiv (Fin.last Lt.n)).symm
-
-def LabeledTypeWithoutLast (Lt : LabeledType) (hn : Lt.n ≥ 1) :
-  LabeledType := by
-  refine {
-    n := Lt.n - 1
-    V := LabeledTypeWithoutLastType Lt
-    labeling := ?_
-  }
-  simpa [Nat.sub_add_cancel hn] using subtype_equiv_fin_subtype Lt
-
-def upper_vertices (Lt : LabeledType) (k : ℕ) : Finset Lt.V :=
-  Finset.filter (λ v => Lt.n + 1 - k ≤ (Lt.labeling v)) Finset.univ
-
-def upper_vertices_card (Lt : LabeledType) (k : ℕ) (hk : k ≤ Lt.n + 1) :
-  Finset.card (upper_vertices Lt k) = k := by
-    rw [← Fintype.card_coe (upper_vertices Lt k)]
-    simp [upper_vertices]
-    have he : {v // Lt.n + 1 ≤ (Lt.labeling v).val + k} ≃
-      {i : Fin (Lt.n + 1) // Lt.n + 1 - k ≤ i.val} :=
-        Lt.labeling.subtypeEquiv (by intro a; simp)
-    rw [Fintype.card_congr he]
-    let equiv (Lt : LabeledType) (hk : k ≤ Lt.n + 1) :
-      {i : Fin (Lt.n + 1) // Lt.n + 1 - k ≤ (i : Nat)} ≃ Fin k := {
-        toFun := λ ⟨x, hx⟩ => ⟨x - (Lt.n + 1 - k), by omega⟩
-        invFun := λ ⟨x, hx⟩ => ⟨⟨Lt.n + 1 - k + x, by omega⟩, by simp⟩
-        left_inv := by intro ⟨x, hx⟩; ext; simp; omega
-        right_inv := by intro x; ext; simp }
-    rw [Fintype.card_congr (equiv Lt hk)]
-    exact Fintype.card_fin k
-
-def is_forest_with_roots_in_set (Lt : LabeledType) (G : SimpleGraph Lt.V) (k : ℕ) : Prop :=
-  G.IsAcyclic ∧ ConnectedComponent.Represents
-    (upper_vertices Lt k) (Set.univ : Set G.ConnectedComponent)
-
-noncomputable def forest_set (Lt : LabeledType) (k : ℕ) : Finset (SimpleGraph Lt.V) :=
-   {G | is_forest_with_roots_in_set Lt G k}
-
-noncomputable def number_of_forests (Lt : LabeledType) (k : ℕ) : ℕ :=
-  Finset.card (forest_set Lt k)
-
-theorem general_cayley :
-  ∀ (Lt : LabeledType), ∀ k : ℕ, k ≤ Lt.n + 1 →
-    number_of_forests Lt k = k * (Lt.n + 1) ^ ((Lt.n + 1) - 1 - k) := by sorry
-
-noncomputable def equivalence (Lt : LabeledType) (k : ℕ) (hn : Lt.n ≥ 1) (hk : k ≥ 1) (hnk : k ≤ Lt.n + 1) :
-  forest_set Lt k ≃
+noncomputable def bij (Lt : LabeledType) (k : ℕ) (hn : Lt.n ≥ 1) (hk : k ≥ 1) (hnk : k ≤ Lt.n + 1) :
+  forest_set Lt k →
   Σ i : Fin (Lt.n + 2 - k), Σ N : {s : Finset (Fin (Lt.n + 1 - k)) // s.card = i},
-  forest_set (LabeledTypeWithoutLast Lt hn) (k - 1 + i) where
-  toFun :=
+  forest_set (LabeledTypeWithoutLast Lt hn) (k - 1 + i) :=
     λ ⟨W, hW⟩ =>
     let n : ℕ := Lt.n
     let roots : Finset Lt.V := upper_vertices Lt k
-    let v : Lt.V := Lt.labeling.symm (⟨n, by linarith⟩ : Fin (n + 1))
+    let v : Lt.V := Lt.labeling.symm (⟨n, by omega⟩ : Fin (n + 1))
     have hv : v ∈ roots := by
       simp [roots, v, n, upper_vertices]
       rw [Nat.add_one_le_iff]
@@ -170,10 +107,8 @@ noncomputable def equivalence (Lt : LabeledType) (k : ℕ) (hn : Lt.n ≥ 1) (hk
 
     have hn_nt : ∀ x ∈ neighbor_set, Lt.labeling x ≠ Fin.last n := by
       intro x hx
-      have hr : Lt.labeling x < n + 1 - k := ht x hx
-      by_contra h
-      have : (Lt.labeling x : ℕ) = n := by simp [h]
-      omega
+      by_contra hc
+      exact W.ne_of_adj (adj_symm W (by simpa [neighbor_set] using hx)) ((hvl x).mp hc)
 
     let old_new_roots : Finset Lt.V := roots \ {v}
 
@@ -234,8 +169,8 @@ noncomputable def equivalence (Lt : LabeledType) (k : ℕ) (hn : Lt.n ≥ 1) (hk
       rcases hW'.2.surjOn hc_univ with ⟨e', he', hce'⟩
       have hr : W.Reachable d.1 e' := by simp [c] at hce'; exact Reachable.symm hce'
       by_cases bc : e' ≠ v
-      · have he'l : Lt.labeling e' ≠ Fin.last n := by by_contra hc; exact bc ((hvl e').mp hc)
-        have he'nor : e' ∈ old_new_roots := by simp [old_new_roots]; exact ⟨he', bc⟩
+      · have he'nor : e' ∈ old_new_roots := by simp [old_new_roots]; exact ⟨he', bc⟩
+        have he'l : Lt.labeling e' ≠ Fin.last n := hr_nt e' he'nor
         let e : Nt.V := ⟨e', he'l⟩
         have he : e ∈ new_roots_Nt :=
           by simp [new_roots_Nt, old_roots_Nt]; right; exact ⟨e', he'nor, rfl⟩
@@ -259,8 +194,7 @@ noncomputable def equivalence (Lt : LabeledType) (k : ℕ) (hn : Lt.n ≥ 1) (hk
         have pn : ¬p.Nil := Walk.not_nil_of_ne dnv
         rcases adj_of_mem_walk_support p pn (Walk.end_mem_support p) with ⟨nv, hnvs, hnv⟩
         have hnv' : nv ∈ neighbor_set := by simpa [neighbor_set] using hnv
-        have hnvl : Lt.labeling nv ≠ Fin.last n :=
-          by by_contra hc; exact W.ne_of_adj (adj_symm W hnv) ((hvl nv).mp hc)
+        have hnvl : Lt.labeling nv ≠ Fin.last n := hn_nt nv hnv'
         have hnvnor : ⟨nv, hnvl⟩ ∈ new_roots_Nt := by
           simp [new_roots_Nt, neighbor_set_Nt]
           left
@@ -351,15 +285,20 @@ noncomputable def equivalence (Lt : LabeledType) (k : ℕ) (hn : Lt.n ≥ 1) (hk
         bij.sumCongr (Fintype.equivOfCardEq (by simp; rw [h_card]))
       _ ≃ Nt.V := Equiv.sumCompl (p := fun x => x ∈ new_upper_Nt)
 
+    let bij : new_roots_Nt ≃ new_upper_Nt := label_switch Nt new_roots_Nt new_upper_Nt h_card
+    let equiv : Nt.V ≃ Nt.V := label_switch_extended Nt new_roots_Nt new_upper_Nt h_card bij
+
     have equiv_symm : ∀ (y : Nt.V) (hy : y ∈ new_upper_Nt),
         equiv.symm y = (bij.symm ⟨y, hy⟩).val := by
       intro y hy
-      simp [equiv, Equiv.symm_trans_apply, Equiv.sumCompl, Equiv.sumCongr, bij, hy]
+      simp [equiv, label_switch, label_switch_extended,
+        Equiv.symm_trans_apply, Equiv.sumCompl, Equiv.sumCongr, bij, hy]
 
     have equiv_forward : ∀ (y : Nt.V) (hy : y ∈ new_roots_Nt),
         equiv y = (bij ⟨y, hy⟩).val := by
       intro y hy
-      simp [equiv, Equiv.trans_apply, Equiv.sumCompl, Equiv.sumCongr, bij, hy]
+      simp [equiv, label_switch, label_switch_extended,
+        Equiv.trans_apply, Equiv.sumCompl, Equiv.sumCongr, bij, hy]
 
     have equiv_symm_image : equiv.symm '' new_upper_Nt ⊆ new_roots_Nt := by
       intro x hx
@@ -429,14 +368,3 @@ noncomputable def equivalence (Lt : LabeledType) (k : ℕ) (hn : Lt.n ≥ 1) (hk
       · exact s_represents
 
     ⟨i, ⟨neighbor_set_labels, by rw[← hnn]⟩, ⟨S, hs⟩⟩
-  invFun := sorry
-  left_inv := sorry
-  right_inv := sorry
-
-
-  -- lemma helper (n : ℕ) (k : ℕ) (hk : k ≥ 2) (hn : n ≥ 1) :
-  -- Fintype.card (ForestType n k) =
-  --   ∑ i : Fin (n - k + 1),
-  --   Nat.choose (n - k) i * Fintype.card (ForestType (n - 1) (k - 1 + i)) := by
-  -- rw [Fintype.card_congr (equiv n k hk hn)]
-  -- simp [Fintype.card_sigma]
