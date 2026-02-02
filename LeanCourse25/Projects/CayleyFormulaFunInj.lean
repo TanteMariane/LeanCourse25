@@ -41,6 +41,8 @@ lemma f_injective (Lt : LabeledType) (k : ℕ) (hn : Lt.n ≥ 1) (hk : k ≥ 1) 
   --h_degree : s1.degree v = s2.degree v
   simp [this, h_degree, is_forest_with_roots_in_set, upper_vertices, forest_set, label_switch, label_switch_extended] at h
   --rw [h_target_eq] at h
+
+
   -- have hv : v = Lt.labeling.symm (⟨n, by omega⟩) := rfl
   -- rw [← hv] at h_degree
   -- let deg := s1.degree v
