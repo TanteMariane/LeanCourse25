@@ -213,47 +213,71 @@ theorem f_maps_to {hw : w ∈ roots} (G : SimpleGraph α) (hG : G ∈ forest_set
       obtain ⟨a, ha, ha'⟩ := new_roots_surj G hG (w := w) (hw := hw) d
       exact ⟨a.1, a.2, ha, Reachable.symm ha'⟩
 
-lemma disj {hw : w ∈ roots} (G : SimpleGraph α) (hG : G ∈ forest_set roots) :
-  Disjoint (G.neighborFinset w) roots := by
-  rw [Finset.disjoint_iff_ne]
-  intro a ha b hb
-  by_contra hc
-  simp only [mem_neighborFinset] at ha
-  subst hc
-  exact roots_not_reachable G hG a w hb hw (Adj.ne' ha) (Adj.reachable (adj_symm G ha))
+-- lemma disj {hw : w ∈ roots} (G : SimpleGraph α) (hG : G ∈ forest_set roots) :
+--   Disjoint (G.neighborFinset w) roots := by
+--   rw [Finset.disjoint_iff_ne]
+--   intro a ha b hb
+--   by_contra hc
+--   simp only [mem_neighborFinset] at ha
+--   subst hc
+--   exact roots_not_reachable G hG a w hb hw (Adj.ne' ha) (Adj.reachable (adj_symm G ha))
 
-lemma card {hw : w ∈ roots} (G : SimpleGraph α) (hG : G ∈ forest_set roots) :
-  (G.neighborFinset w).card < Fintype.card α - roots.card + 1 := by
-  rw [Order.lt_add_one_iff]
-  have h : (G.neighborFinset w).card + roots.card ≤ Fintype.card α := by
-    rw [← Finset.card_union_eq_card_add_card.mpr (disj G hG)]
-    · exact Finset.card_le_univ (G.neighborFinset w ∪ roots)
-    · exact hw
-  exact Nat.le_sub_of_add_le h
-
-lemma disj_coe {hw : w ∈ roots} (F : SimpleGraph α) (hF : F ∈ forest_set roots) :
-  Disjoint (α := Finset {v : α // v ≠ w}) (coer (F.neighborFinset w)) (coer roots) := by
-  simp[coer]
-  rw [Finset.disjoint_iff_ne]
-  intro a ha b hb
-  simp at ha hb
-  by_contra hc
-  subst hc
-  exact roots_not_reachable F hF a w hb hw (Adj.ne' ha) (Adj.reachable (adj_symm F ha))
-
-lemma card_coe {hw : w ∈ roots} (G : SimpleGraph α) (hG : G ∈ forest_set roots) :
-  (G.neighborFinset w).card < Fintype.card α - roots.card + 1 := by
-  rw [Order.lt_add_one_iff]
-  have h : (G.neighborFinset w).card + roots.card ≤ Fintype.card α := by
-    rw [← Finset.card_union_eq_card_add_card.mpr (disj G hG)]
-    · exact Finset.card_le_univ (G.neighborFinset w ∪ roots)
-    · exact hw
-  exact Nat.le_sub_of_add_le h
+-- lemma card {hw : w ∈ roots} (G : SimpleGraph α) (hG : G ∈ forest_set roots) :
+--   (G.neighborFinset w).card < Fintype.card α - roots.card + 1 := by
+--   rw [Order.lt_add_one_iff]
+--   have h : (G.neighborFinset w).card + roots.card ≤ Fintype.card α := by
+--     rw [← Finset.card_union_eq_card_add_card.mpr (disj G hG)]
+--     · exact Finset.card_le_univ (G.neighborFinset w ∪ roots)
+--     · exact hw
+--   exact Nat.le_sub_of_add_le h
 
 
-noncomputable def f_ext (F : SimpleGraph α) (hF : F ∈ forest_set roots) :
-  Finset {v | v ≠ w} × (forest_set (α := {v | v ≠ w}) (new_roots roots F)) :=
-  ⟨coer (F.neighborFinset w), ⟨f F, f_maps_to (hw := hw) F hF⟩⟩
+def valid_neighbor_sets_i (i : ℕ) (w : α) (roots : Finset α) : Type :=
+  {N : Finset α // w ∉ N ∧ Disjoint N roots ∧ N.card = i}
+
+--further plan:
+--fix an i and a valid_neighbor_set_i N
+--f induces a bijection between the forests rooted in roots, where w has i neighbors
+--in valid_neighbor_set_i N, and the forests rooted in (roots \ {w} ∪ N)
+--we already proved injectivity
+
+--after that we need to prove that the union over all valid_neighbor_sets_i
+--covers each forest exactly one time
+
+def forest_fiber (N : Finset α) : Type _ :=
+  {G : SimpleGraph α // G ∈ forest_set roots ∧ (G.neighborFinset w) = N}
+
+def f_on_fiber (i : Fin (Fintype.card α - Finset.card roots + 1))
+  (N : valid_neighbor_sets_i i w roots) (G : forest_set roots) () : := ⟨ ⟩
+
+
+
+-- lemma disj_coe {hw : w ∈ roots} (F : SimpleGraph α) (hF : F ∈ forest_set roots) :
+--   Disjoint (α := Finset {v : α // v ≠ w}) (coer (F.neighborFinset w)) (coer roots) := by
+--   simp[coer]
+--   rw [Finset.disjoint_iff_ne]
+--   intro a ha b hb
+--   simp at ha hb
+--   by_contra hc
+--   subst hc
+--   exact roots_not_reachable F hF a w hb hw (Adj.ne' ha) (Adj.reachable (adj_symm F ha))
+
+-- lemma card_coe {hw : w ∈ roots} (G : SimpleGraph α) (hG : G ∈ forest_set roots) :
+--   (G.neighborFinset w).card < Fintype.card α - roots.card + 1 := by
+--   rw [Order.lt_add_one_iff]
+--   have h : (G.neighborFinset w).card + roots.card ≤ Fintype.card α := by
+--     rw [← Finset.card_union_eq_card_add_card.mpr (disj G hG)]
+--     · exact Finset.card_le_univ (G.neighborFinset w ∪ roots)
+--     · exact hw
+--   exact Nat.le_sub_of_add_le h
+
+
+-- noncomputable def f_ext (F : SimpleGraph α) (hF : F ∈ forest_set roots) :
+--   Finset {v | v ≠ w} × (forest_set (α := {v | v ≠ w}) (new_roots roots F)) :=
+--   ⟨coer (F.neighborFinset w), ⟨f F, f_maps_to (hw := hw) F hF⟩⟩
+
+-- theorem f_ext_injective {F1 F2 : SimpleGraph α} (hF1 : F1 ∈ forest_set roots) (hF2 : F2 ∈ forest_set roots) :
+--     f_ext F1 hF1 = f_ext F2 hF2 → F1 = F2 := by sorry
 
 -- def valid_neighbor_sets_i (i : ℕ) (w : α) (roots : Finset α) : Type :=
 --   {N : Finset {v | v ≠ w} // Disjoint N (coer roots) ∧ N.card = i}
