@@ -1,4 +1,4 @@
-import LeanCourse25.Projects.CayleyFormulaTypes
+import LeanCourse25.Projects.OLDCayleyFormulaTypes
 import Mathlib.Combinatorics.SimpleGraph.Connectivity.Connected
 import Mathlib.Combinatorics.SimpleGraph.Connectivity.Represents
 import Mathlib.Combinatorics.SimpleGraph.Acyclic

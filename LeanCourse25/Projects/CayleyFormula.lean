@@ -51,9 +51,9 @@ def f_inv (G : SimpleGraph {v | v ≠ w}) (N : Finset {v | v ≠ w}) : SimpleGra
   symm := by
     intro a b h
     rcases h with (⟨ha, hb, h_adj⟩ | ⟨rfl, hb, h_mem⟩ | ⟨rfl, ha, h_mem⟩)
-    · exact Or.inl ⟨hb, ha, G.symm h_adj⟩
-    · exact Or.inr (Or.inr ⟨rfl, hb, h_mem⟩)
-    · exact Or.inr (Or.inl ⟨rfl, ha, h_mem⟩)
+    · left; exact ⟨hb, ha, G.symm h_adj⟩
+    · right; right; exact ⟨rfl, hb, h_mem⟩
+    · right; left; exact ⟨rfl, ha, h_mem⟩
   loopless := by
     intro a h
     rcases h with (⟨ha, hb, h_adj⟩ | ⟨rfl, hb, h_mem⟩ | ⟨rfl, ha, h_mem⟩)
@@ -100,17 +100,11 @@ lemma f_inj (G G' : SimpleGraph α) :
     exact hf
 
 
-
-
-
-
-
 noncomputable def new_roots (roots : Finset α) (G : SimpleGraph α) :
   Finset {v | v ≠ w} := (roots ∪ G.neighborFinset w).subtype (fun v => v ≠ w)
 
 noncomputable def coer (set : Finset α) :
   Finset {v | v ≠ w} := set.subtype (fun v => v ≠ w)
-
 
 
 --some helper lemmas
