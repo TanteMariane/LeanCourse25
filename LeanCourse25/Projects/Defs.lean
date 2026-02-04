@@ -2,6 +2,7 @@ import Mathlib.Combinatorics.SimpleGraph.Connectivity.Connected
 import Mathlib.Combinatorics.SimpleGraph.Connectivity.Represents
 import Mathlib.Combinatorics.SimpleGraph.Acyclic
 import Mathlib.Logic.Equiv.Fin.Basic
+import Mathlib.Combinatorics.SimpleGraph.Connectivity.Subgraph
 
 open Classical SimpleGraph
 
@@ -16,17 +17,26 @@ def is_forest_with_roots_in_set {α : Type} [Fintype α] (G : SimpleGraph α)
 def RootedForest {α : Type} [Fintype α]
   (roots : Finset α) := {G // is_forest_with_roots_in_set G roots}
 
--- class IsForestWithRoots (G : SimpleGraph α) (roots : Finset α) : Prop where
---   (hG : G ∈ forest_set roots)
-
-def induce_hom (S : SimpleGraph α) : S.induce {v | v ≠ w} →g S := {
+def induce_hom_S (S : SimpleGraph α) : S.induce {v | v ≠ w} →g S := {
   toFun := fun v => v.val
   map_rel' := by intro v w h; exact h}
 
 omit [Fintype α] in
-lemma induce_hom_inj (S : SimpleGraph α) : Function.Injective (induce_hom (w:= w) S)  := by
+lemma induce_hom_S_inj (S : SimpleGraph α) : Function.Injective (induce_hom_S (w:= w) S)  := by
   intro v w h
   exact Subtype.ext h
+
+def induce_hom (S : SimpleGraph α) (U : Finset α) (h : w ∉ U) :
+  S.induce U →g S.induce {v | v ≠ w} := {
+  toFun := fun v => ⟨v, ne_of_mem_of_not_mem v.2 h⟩
+  map_rel' := by intro v w h; exact h}
+
+omit [Fintype α] in
+lemma induce_hom_inj (S : SimpleGraph α) (U : Finset α) (h : w ∉ U) :
+  Function.Injective (induce_hom (w:= w) S U h)  := by
+  intro v w hi
+  simp [induce_hom] at hi
+  exact SetCoe.ext hi
 
 def f (G : SimpleGraph α) : SimpleGraph {v | v ≠ w} :=
   G.induce {v | v ≠ w}
@@ -53,6 +63,18 @@ def f_inv (G : SimpleGraph {v | v ≠ w}) (N : Finset {v | v ≠ w}) : SimpleGra
     · exact hb rfl
     · exact ha rfl
   }
+
+omit [Fintype α] in
+theorem f_comp_f_inv (G : SimpleGraph {v | v ≠ w}) (N : Finset {v | v ≠ w}) :
+  G = f (f_inv (hw := hw) G N) := by
+  ext ⟨u, hu⟩ ⟨v, hv⟩
+  constructor
+  · intro h_adj
+    left
+    exact ⟨hu, hv, h_adj⟩
+  · intro h_adj
+    rcases h_adj with ⟨ha, hb, h⟩ | ⟨ha, hb, h⟩ | ⟨ha, hb, h⟩ <;>
+    trivial
 
 omit [Fintype α] in
 lemma f_inj (G G' : SimpleGraph α) :
@@ -99,13 +121,6 @@ lemma inj_comp (G : RootedForest roots) :
     Set.BijOn, Set.InjOn] at hG
   exact hG.2.2.1
 
--- lemma surj_comp [IsForestWithRoots G roots] :
---     ∀ x, ∃ r ∈ roots, G.connectedComponentMk r = x := by
---   have hG := IsForestWithRoots.hG (G := G) (roots := roots)
---   simp [forest_set, is_forest_with_roots_in_set, ConnectedComponent.Represents,
---     Set.BijOn, Set.SurjOn, Set.ext_iff, Set.mem_image, Set.mem_univ] at hG
---   exact hG.2.2.2
-
 lemma roots_not_reachable (G : RootedForest roots) :
   ∀ u w, u ∈ roots → w ∈ roots → u ≠ w → ¬G.1.Reachable u w := by
   intro u w hu hw he
@@ -134,8 +149,8 @@ lemma neighbors_neighbors_not_reachable (G : SimpleGraph α) (ha : G.IsAcyclic)
   have pxwy : xwy.IsPath := by simp [xwy]; exact ⟨Ne.symm hy, hx, hc⟩
   have wp : w ∈ xwy.support := by simp [xwy]
   let xy : G.Path x y :=
-    ⟨p.map (induce_hom G), Walk.map_isPath_of_injective (induce_hom_inj G) hp⟩
-  have wp' : w ∉ xy.1.support := by simp [xy, induce_hom]
+    ⟨p.map (induce_hom_S G), Walk.map_isPath_of_injective (induce_hom_S_inj G) hp⟩
+  have wp' : w ∉ xy.1.support := by simp [xy, induce_hom_S]
   have hc : xy = ⟨xwy, pxwy⟩ := by apply IsAcyclic.path_unique ha
   have hc' : xy ≠ ⟨xwy, pxwy⟩ := by
     by_contra hc
@@ -159,6 +174,13 @@ lemma reachability_subgraph (G : SimpleGraph α) (x y : α) (p : G.Walk x y) (hx
           apply hs x
           simp [Walk.support_cons, hx]
         exact Walk.cons h_edge (ih hb hy hs')⟩
+
+--like reachability_subgraph, if there is a cycle in G without w,
+--then there is a cycle in (f G)
+lemma cycle_subgraph (G : SimpleGraph α) (v : α) (p : G.Walk v v)
+    (hp : p.IsCycle) (hv : v ≠ w) (hw : w ∉ p.support) :
+    ∃ (q : (f G).Walk ⟨v, hv⟩ ⟨v, hv⟩), q.IsCycle := by
+  sorry
 
 --prove that there is a path from every node x in G.induce {v | v ≠ w} to
 --a node in (roots \ {w} ∪ G.neighborFinset w)
@@ -204,7 +226,6 @@ lemma new_roots_surj {hw : w ∈ roots} (G : RootedForest roots) :
         exact ne_of_mem_of_not_mem hi vp'
       exact reachability_subgraph G.1 x.1 n p'.1 x.2 hne hrs
 
-
 --if we delete a root w, then we get a forest rooted in (roots \ {w} ∪ G.neighborFinset w)
 theorem f_maps_to {hw : w ∈ roots} (G : RootedForest roots) :
   is_forest_with_roots_in_set (f G.1) (new_roots (w := w) roots G.1) := by
@@ -222,11 +243,11 @@ theorem f_maps_to {hw : w ∈ roots} (G : RootedForest roots) :
       rcases hx' with hx' | hx' <;>
       rcases hy' with hy' | hy'
       · exact (roots_not_reachable G x y hx' hy' hc)
-          (Reachable.map (induce_hom G.1) hr)
+          (Reachable.map (induce_hom_S G.1) hr)
       · exact roots_neighbors_not_reachable (hw := hw) G x y hx' hy' hx
-          (Reachable.map (induce_hom G.1) hr)
+          (Reachable.map (induce_hom_S G.1) hr)
       · exact roots_neighbors_not_reachable (hw := hw) G y x hy' hx' hy
-          (Reachable.symm (Reachable.map (induce_hom G.1) hr))
+          (Reachable.symm (Reachable.map (induce_hom_S G.1) hr))
       · have hh : ¬(induce {v | v ≠ w} G.1).Reachable ⟨x, hx⟩ ⟨y, hy⟩ := by
           exact (neighbors_neighbors_not_reachable G.1 hG.1 x y hx hy hc hx' hy')
         exact hh hr
@@ -239,30 +260,58 @@ theorem f_maps_to {hw : w ∈ roots} (G : RootedForest roots) :
       obtain ⟨a, ha, ha'⟩ := new_roots_surj G (w := w) (hw := hw) d
       exact ⟨a.1, a.2, ha, Reachable.symm ha'⟩
 
--- lemma disj {hw : w ∈ roots} (G : SimpleGraph α) (hG : G ∈ forest_set roots) :
---   Disjoint (G.neighborFinset w) roots := by
---   rw [Finset.disjoint_iff_ne]
---   intro a ha b hb
---   by_contra hc
---   simp only [mem_neighborFinset] at ha
---   subst hc
---   exact roots_not_reachable G hG a w hb hw (Adj.ne' ha) (Adj.reachable (adj_symm G ha))
+lemma f_inv_preserves_acyclic (G : SimpleGraph {v | v ≠ w}) (hA : G.IsAcyclic)
+  (N : Finset {v | v ≠ w}) : (f_inv (hw := hw) G N).IsAcyclic := by
+  let G' : SimpleGraph α := (f_inv (hw := hw) G N)
+  simp [IsAcyclic]
+  intro v cycle
+  by_contra bc
+  by_cases hc : w ∉ cycle.support
+  · --we get a cycle that lies in G
+    have hv : v ≠ w := by
+      by_contra bc
+      subst bc
+      exact hc (Walk.start_mem_support cycle)
+    obtain ⟨cycle', h_cycle'⟩ := cycle_subgraph G' v cycle bc hv hc
+    simp [G'] at cycle'
+    rw [← f_comp_f_inv G N] at cycle'
+    sorry
+  · --we get a path from one neighbor of w to another that does not include w
+    --then we are done by neighbors_neighbors_not_reachable
+    sorry
 
--- lemma card {hw : w ∈ roots} (G : SimpleGraph α) (hG : G ∈ forest_set roots) :
---   (G.neighborFinset w).card < Fintype.card α - roots.card + 1 := by
---   rw [Order.lt_add_one_iff]
---   have h : (G.neighborFinset w).card + roots.card ≤ Fintype.card α := by
---     rw [← Finset.card_union_eq_card_add_card.mpr (disj G hG)]
---     · exact Finset.card_le_univ (G.neighborFinset w ∪ roots)
---     · exact hw
---   exact Nat.le_sub_of_add_le h
+theorem f_inv_maps_to {hw : w ∈ roots} (N : Finset {v | v ≠ w})
+  (G : RootedForest (coer roots ∪ N)) :
+  is_forest_with_roots_in_set (f_inv (hw := hw) G.1 N) roots := by
+  simp [is_forest_with_roots_in_set]
+  constructor
+  · exact f_inv_preserves_acyclic G.1 G.2.1 N
+  · sorry
+
+lemma disj {hw : w ∈ roots} (G : RootedForest roots) :
+  Disjoint (G.1.neighborFinset w) roots := by
+  rw [Finset.disjoint_iff_ne]
+  intro a ha b hb
+  by_contra hc
+  simp only [mem_neighborFinset] at ha
+  subst hc
+  exact roots_not_reachable G a w hb hw (Adj.ne' ha) (Adj.reachable (adj_symm G.1 ha))
+
+lemma card {hw : w ∈ roots} (G : RootedForest roots) :
+  (G.1.neighborFinset w).card < Fintype.card α - roots.card + 1 := by
+  rw [Order.lt_add_one_iff]
+  have h : (G.1.neighborFinset w).card + roots.card ≤ Fintype.card α := by
+    rw [← Finset.card_union_eq_card_add_card.mpr (disj G)]
+    · exact Finset.card_le_univ (G.1.neighborFinset w ∪ roots)
+    · exact hw
+  exact Nat.le_sub_of_add_le h
 
 
 
 
 --further plan:
 --separate the (RootedForest roots) by the possible neighbors of w
---fix (an i and) a valid_neighbor_set_i N
+--fix a valid_neighbor_set_i N
 --f induces a bijection between the forests rooted in roots, where w has i neighbors
 --in valid_neighbor_set_i N, and the forests rooted in (roots \ {w} ∪ N)
 --we already proved injectivity
@@ -295,8 +344,8 @@ def f_on_fiber (set_size : Fin (Fintype.card α - Finset.card roots + 1))
 
 lemma f_on_fiber_inj (set_size : Fin (Fintype.card α - Finset.card roots + 1))
   (N : valid_neighbor_sets_i set_size roots) (G : forest_fiber set_size N)
-  (G' : forest_fiber set_size N) (hne : f_on_fiber (hw:=hw) set_size N G =
-  f_on_fiber (hw:=hw) set_size N G') :
+  (G' : forest_fiber set_size N) (hne : f_on_fiber (hw := hw) set_size N G =
+  f_on_fiber (hw := hw) set_size N G') :
   G.1.1 = G'.1.1 := by
   simp [f_on_fiber] at hne
   have hf : f (w := w) G.1.1 = f G'.1.1 := by
@@ -314,27 +363,6 @@ lemma f_on_fiber_surj (set_size : Fin (Fintype.card α - Finset.card roots + 1))
   (F' : RootedForest (α := {v | v ≠ w}) (coer (roots ∪ N.1))) :
   ∃ F : forest_fiber set_size N, f_on_fiber (hw:=hw) set_size N F = F' := by
   sorry
-
-
--- lemma disj_coe {hw : w ∈ roots} (F : SimpleGraph α) (hF : F ∈ forest_set roots) :
---   Disjoint (α := Finset {v : α // v ≠ w}) (coer (F.neighborFinset w)) (coer roots) := by
---   simp[coer]
---   rw [Finset.disjoint_iff_ne]
---   intro a ha b hb
---   simp at ha hb
---   by_contra hc
---   subst hc
---   exact roots_not_reachable F hF a w hb hw (Adj.ne' ha) (Adj.reachable (adj_symm F ha))
-
--- lemma card_coe {hw : w ∈ roots} (G : SimpleGraph α) (hG : G ∈ forest_set roots) :
---   (G.neighborFinset w).card < Fintype.card α - roots.card + 1 := by
---   rw [Order.lt_add_one_iff]
---   have h : (G.neighborFinset w).card + roots.card ≤ Fintype.card α := by
---     rw [← Finset.card_union_eq_card_add_card.mpr (disj G hG)]
---     · exact Finset.card_le_univ (G.neighborFinset w ∪ roots)
---     · exact hw
---   exact Nat.le_sub_of_add_le h
-
 
 
 
