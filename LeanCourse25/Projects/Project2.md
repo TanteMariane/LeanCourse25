@@ -11,6 +11,7 @@ Partner (optional):
 
 ## Contents of the project
 Tried to prove the more general statement of Cayleys formula using the proof via recursion (see [book of proofs](https://link.springer.com/book/10.1007/978-3-662-57767-7)). It says that there are $kn^{n-k-1}$ labeled forests on $n$ vertices, rooted in a $k$-vertex-set $R$. Where rooted in $R$ means that in each connected component of the forest there is exactly one element of $R$.
+In my code the type **RootedForest $\alpha$** denotes those forests, where $\alpha$ is a Fintype.
 ### What's proven
 * We have a forest $F$ rooted in the set $R$. When we remove one vertex $w$ of $R$ from $F$, we get a forest that is rooted in $(R \setminus \{w\} \cup \{\text{neighbors } w\})$.
 * This is an injection from the set of forests rooted in $R$ to the forests rooted in $(R \setminus \{w\} \cup \{\text{neighbors } w\})$.
