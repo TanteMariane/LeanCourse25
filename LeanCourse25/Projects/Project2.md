@@ -20,8 +20,12 @@ Tried to prove the more general statement of Cayleys formula using the proof via
 * What is left then, is to use these two injections to get a bijection FROM the set of forests rooted in $R$ where $w$ has neighborset $N$ TO the forests rooted in $(R \setminus \{w\} \cup \{\text{neighbors } w\})$. We know the size of the second set by induction and then we can sum up over all possible choices of the set $N$.
 
 ## References/sources
-* Mathlib4 search
+* Mathlib4 search, mathlib4_docs
 * I used GPT-4.1 for asking syntax questions about Lean, also for
   *  declare things as type or subset
   *  use of rcases
 * Every piece of code is written by myself
+
+## Remark
+* The only relevant project file is CayleyFormula.lean
+* The other two files are older work, where I defined my SimpleGraphs to have vertex type "LabeledType", which was unnecessary and led to much more code than needed.
